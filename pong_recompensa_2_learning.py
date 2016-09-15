@@ -5,7 +5,7 @@ import random as rand
 # Number of frames per second
 # Change this value to speed up or slow down your game
 #FPS = float(raw_input("choose speed: "))
-FPS = 999999999
+# FPS = 500
 def pause():
     raw_input("Continue")
     #just a pause function for debugging
@@ -16,11 +16,13 @@ LINETHICKNESS = 10
 PADDLESIZE = 40
 PADDLEOFFSET = 20
 ACTIONS = {'up':0,'down':1,'stop':2}
+actionList = ['up', 'down', 'stop']
 XSTATES = (range(WINDOWWIDTH+1))
 YSTATES = (range(WINDOWHEIGHT+1))
 ANGLES = (1,-1)
-
 ERROS = 0
+epsGreedy = 0.5
+steps = 0;
 
 
 POSICOES_DO_PADDLE = 10
@@ -28,9 +30,8 @@ STEP_PADDLE = (WINDOWHEIGHT-2*LINETHICKNESS)/POSICOES_DO_PADDLE
 
 PADDLEPOS = (range(0,POSICOES_DO_PADDLE))
 
-Q = [ [ [ [ [ [rand.random()]for i in ACTIONS] for i in  PADDLEPOS] for i in ANGLES] for i in YSTATES] for i in XSTATES]
+Q = [ [ [ [ [ [rand.uniform(0.5,1)]for i in ACTIONS] for i in  PADDLEPOS] for i in ANGLES] for i in YSTATES] for i in XSTATES]
 #print len(Q[300][200][1][9][2])
-
 
 
 # Set up the colours
@@ -134,21 +135,21 @@ def rewardFunction( ball , paddle1, ballDir , acao):
     global ERROS
     ballDirX = ballDir[0]
     ballDirY = ballDir[1]
-    
+
     if ball.left  > ((2*LINETHICKNESS)+PADDLEOFFSET):
         if ballDirY > 0:
             if acao == "down":
-                R = 1
+                R = 10
             elif acao == "up":
-                R = -1
+                R = -10
             else:
                 R = 0
 
         elif ballDirY < 0:
             if acao == "down":
-                R = -1
+                R = -10
             elif acao == "up":
-                R = 1
+                R = 10
             else:
                 R = 0
 
@@ -158,43 +159,31 @@ def rewardFunction( ball , paddle1, ballDir , acao):
 
             R = 50
             print ERROS
+            # pause()
             ERROS = 0
-            
+
 
         else:
             R = -50
             ERROS = ERROS + 1
-            print ERROS
-            
-            
+            # print ERROS
+
+
     else:
         R = 0
-    # if (ballDirX == -1) and (ball.left == paddle1.right):
-    #     print "ball.top: ", ball.top
-    #     print "paddle1.top: ", paddle1.top
-    #     print "ball.bottom: ", ball.bottom
-    #     print "paddle1.bottom: ", paddle1.bottom
-    #     print "R: ", R
-    #     pause()
-    #print "R: ", R
     return R
 
 def CALCQ( ball , angle , paddle1 , action, ballDir):
 
     global Q
-    
+
     X = ball.x
     Y = ball.y
     paddle_pos = getPaddlePos(paddle1)
-    # print "paddle1.y", paddle1.y
-    # print "X: ", X
-    # print "Y: ", Y
-    # print "angle: ", angle
-    # print "paddle_pos: ", paddle_pos
-    #print "ACTION: ", ACTION
 
-    ALPHA = 0.8
-    GAMMA = 0.2
+
+    ALPHA = 0.1
+    GAMMA = 0.01
 
     Q[X][Y][angle][paddle_pos][action][0] = (Q[ball.x][ball.y][angle][paddle_pos][action][0]
     + ALPHA*(rewardFunction( ball , paddle1, ballDir , action) + GAMMA*( MAX_NEXT_STATE(X,Y,angle,paddle1, action) -  Q[ball.x][ball.y][angle][paddle_pos][action][0]) ) )
@@ -226,28 +215,37 @@ def MAX_NEXT_STATE(X,Y,angle,paddle1, action):
 
     return Qmax
 
-def choose_action( ball , angle , paddle1):
-    qmax = 0.001
-    # VALORES LIMITE DE ACESSO EM Q: Q[300][200][1][9][2]
-    # em ordem: posX, posY, angle, posPADDLE, ACTION
-    paddle_pos = getPaddlePos(paddle1);
+def choose_action( ball , angle , paddle1, score):
+    global epsGreedy
 
-    entradas = 0
-    
-    for a in ACTIONS:
-        Q_value = Q[ball.x][ball.y][angle][paddle_pos][ACTIONS[a]][0]
+    if rand.random() < epsGreedy:
+        achosen = actionList[rand.randint(0,2)]
+        # print "RANDOM"
+    else:
+        qmax = 0.001
+        # VALORES LIMITE DE ACESSO EM Q: Q[300][200][1][9][2]
+        # em ordem: posX, posY, angle, posPADDLE, ACTION
+        paddle_pos = getPaddlePos(paddle1)
+        entradas = 0
 
-        if Q_value >= qmax:
-            
-            entradas = entradas+1
-            
-            qmax = Q_value
-            achosen = a
-            
-        else:
-            if entradas == 0:
-                achosen = "stop"
-                
+        for a in ACTIONS:
+            Q_value = Q[ball.x][ball.y][angle][paddle_pos][ACTIONS[a]][0]
+
+            if Q_value >= qmax:
+                entradas = entradas+1
+                qmax = Q_value
+                achosen = a
+
+            else:
+                if entradas == 0:
+                    achosen = "stop"
+        # print "CHOSEN"
+    if epsGreedy > 1e-16:
+        epsGreedy = 0.99999*epsGreedy
+
+    else:
+        epsGreedy = 0
+
     return achosen
 
 
@@ -258,12 +256,12 @@ def main():
     ##Font information
     global BASICFONT, BASICFONTSIZE
 
-    BASICFONTSIZE = 20
-    BASICFONT = pygame.font.Font('freesansbold.ttf', BASICFONTSIZE)
-
-    FPSCLOCK = pygame.time.Clock()
-    #DISPLAYSURF = pygame.display.set_mode((WINDOWWIDTH,WINDOWHEIGHT))
-    #pygame.display.set_caption('Pong')
+    # BASICFONTSIZE = 20
+    # BASICFONT = pygame.font.Font('freesansbold.ttf', BASICFONTSIZE)
+    #
+    # FPSCLOCK = pygame.time.Clock()
+    # DISPLAYSURF = pygame.display.set_mode((WINDOWWIDTH,WINDOWHEIGHT))
+    # pygame.display.set_caption('Pong')
 
     #Initiate variable and set starting positions
     #any future changes made within rectangles
@@ -277,18 +275,17 @@ def main():
     ballDirX = -1 ## -1 = left 1 = right
     ballDirY = -1 ## -1 = up 1 = down
 
-
-
     #Creates Rectangles for ball and paddles.
     paddle1 = pygame.Rect(PADDLEOFFSET,playerOnePosition, LINETHICKNESS,PADDLESIZE)
     paddle2 = pygame.Rect(WINDOWWIDTH - PADDLEOFFSET - LINETHICKNESS, playerTwoPosition, LINETHICKNESS,PADDLESIZE)
     ball = pygame.Rect(ballX, ballY, LINETHICKNESS, LINETHICKNESS)
 
-    #Draws the starting position of the Arena
-    #drawArena()
-    #drawPaddle(paddle1)
-    #drawPaddle(paddle2)
-    #drawBall(ball)
+    # Draws the starting position of the Arena
+
+    # drawArena()
+    # drawPaddle(paddle1)
+    # drawPaddle(paddle2)
+    # drawBall(ball)
 
     #pygame.mouse.set_visible(0) # make cursor invisible
 
@@ -303,21 +300,21 @@ def main():
                 #mousex, mousey = event.pos
                 #paddle1.y = mousey
 
-        #drawArena()
-        #drawPaddle(paddle1)
-        #drawPaddle(paddle2)
-        #drawBall(ball)
+        # drawArena()
+        # drawPaddle(paddle1)
+        # drawPaddle(paddle2)
+        # drawBall(ball)
 
         ball = moveBall(ball, ballDirX, ballDirY)
         ballDirX, ballDirY = checkEdgeCollision(ball, ballDirX, ballDirY)
 
         ballDir = [ballDirX, ballDirY]
 
-        #score = checkPointScored(paddle1, ball, score, ballDirX)
+        score = checkPointScored(paddle1, ball, score, ballDirX)
         ballDirX = ballDirX * checkHitBall(ball, paddle1, paddle2, ballDirX)
         paddle2 = artificialIntelligence (ball, ballDirX, paddle2)
 
-        #displayScore(score)
+        # displayScore(score)
 
 
         if ballDirX == -1:
@@ -325,12 +322,12 @@ def main():
         else:
             angle = 1
 
-        acao = choose_action( ball , angle , paddle1)
+        acao = choose_action( ball , angle , paddle1, score)
         #print "acao: ", acao
         CALCQ( ball , angle , paddle1 , ACTIONS[acao],  ballDir)
 
-        #pygame.display.update()
-        FPSCLOCK.tick(FPS)
+        # pygame.display.update()
+        # FPSCLOCK.tick(FPS)
 
 if __name__=='__main__':
     main()
